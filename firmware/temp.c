@@ -8,7 +8,7 @@
 
 volatile uint16_t tempSum;
 volatile uint16_t currentExtTemp;
-volatile uint16_t currentLocTemp;
+volatile uint16_t currentIntTemp;
 uint8_t sumCount;
 
 
@@ -31,7 +31,7 @@ void temp_init() {
 
   tempSum    = 0;
   currentExtTemp = 0;
-  currentLocTemp = 0;
+  currentIntTemp = 0;
   sumCount   = 0;
 }
 
@@ -43,7 +43,7 @@ temp_get_ext() {
 
 int16_t
 temp_get_int() {
-  return ((((int32_t)currentLocTemp)*98) >> 8) - 7302;
+  return ((((int32_t)currentIntTemp)*1092) >> 8) - 67000;
 }
 
 
@@ -55,16 +55,26 @@ void temp_poll() {
 
   // if ready -> add value to sum
   tempSum += ADC;
-  // restart conversion
-  ADCSRA |= (1<<ADSC);
 
   // increment sum counter
   sumCount++;
   if (64 == sumCount) {
-    // Once complete
-    currentExtTemp = tempSum;
+    // Once complete ...
+    // Store result and swap source
+    if (0x03 == (ADMUX & 0x0f)) {
+      currentExtTemp = tempSum;
+      // select core temp
+      ADMUX = (0<<REFS2) | (1<<REFS1) | (0<<REFS0) | (0<<ADLAR) | 0x0f;
+    } else {
+      currentIntTemp = tempSum;
+      // select ext temp
+      ADMUX = (0<<REFS2) | (0<<REFS1) | (0<<REFS0) | (0<<ADLAR) | 0x03;
+    }
     tempSum = 0; sumCount = 0;
   }
+
+  // restart conversion
+  ADCSRA |= (1<<ADSC);
 }
 
 ISR(TIMER0_OVF_vect) {

@@ -40,9 +40,9 @@ INCLUDE_DIRECTORIES("${CMAKE_SOURCE_DIR}/firmware")
 ##########################################################################
 # Firmware source
 ##########################################################################
-set(firmware_SOURCES main.c i2c.c proto.c temp.c ds1621.c lm90.c
+set(firmware_SOURCES main.c temp.c smb.c ds1621.c lm90.c
     usbdrv/oddebug.c usbdrv/usbdrv.c usbdrv/usbdrvasm.S)
-set(firmware_HEADERS i2c.h proto.h temp.h ds1621.h lm90.h
+set(firmware_HEADERS temp.h smb.h ds1621.h lm90.h smbconfig.h
     usbconfig.h usbdrv/oddebug.h usbdrv/usbdrv.h usbdrv/usbportability.h)
 
 # !!! UGLY HACK TO GET RID OF "-rdynamic" flags. !!!
@@ -50,6 +50,7 @@ set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "")
 set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "")
 set(CMAKE_SHARED_LIBRARY_LINK_ASM_FLAGS "")
 
+add_custom_target(firmware_headers SOURCES ${firmware_HEADERS})
 # compile & link
 add_avr_executable(firmware ${firmware_SOURCES})
 avr_target_link_libraries(firmware ${AVR_C_LIB})

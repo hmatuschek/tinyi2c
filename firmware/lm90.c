@@ -1,5 +1,5 @@
 #include "lm90.h"
-#include "temp.h"
+#include "smb.h"
 #include "string.h"
 
 #define min(a,b) (a<b ? a : b)
@@ -32,41 +32,21 @@
 #define READ_MAN_ID       0xfe  // fixed: 0x01
 #define READ_DEV_ID       0xff  // fixed: 0x21
 
-uint8_t buffer_size = 0;
-uint8_t buffer[4] = {0,0,0,0};
-
-static void smb_put_byte(uint8_t b) {
-  buffer[0] = b;
-  buffer_size = 1;
-}
-
-/*static void smb_put_word(uint16_t w) {
-  // Transmit LSB first
-  buffer[0] = w & 0x00ff; buffer[1] = (w>>8);
-  buffer_size = 2;
-}*/
-
 
 static uint8_t  reg_config      = 0x00;
 static uint8_t  reg_conv_rate   = 0x00;
 static uint8_t  reg_local_high  = 0x46;
 static uint8_t  reg_local_low   = 0x00;
-static uint16_t reg_remote_high = 0x4600;
-static uint16_t reg_remote_low  = 0x4600;
+static uint16_t reg_remote_high = 0x1B00;
+static uint16_t reg_remote_low  = 0x1200;
 static uint16_t reg_remote_off  = 0x0000;
 static uint8_t  reg_local_crit  = 0x55;
-static uint8_t  reg_remote_crit = 0x55;
+static uint8_t  reg_remote_crit = 0x1E;
 static uint8_t  reg_crit_hyst   = 0x0a;
 static uint8_t  reg_diode_flt   = 0x00;
 
-
-uint8_t
-lm90_read(uint8_t *data, uint8_t len) {
-  len = min(buffer_size, len);
-  memcpy(data, buffer, len);
-  buffer_size -= len;
-  return len;
-}
+extern int16_t LM90_GET_EXT_TEMP_FUNC();
+extern int16_t LM90_GET_INT_TEMP_FUNC();
 
 
 uint8_t
@@ -108,7 +88,7 @@ lm90_write(uint8_t *data, uint8_t len) {
       smb_put_byte(reg_local_low);
       break;
     case WRITE_LLOW:
-      reg_local_low = buffer[0];
+      reg_local_low = data[1];
       break;
     case READ_RHIGHH:
       smb_put_byte(reg_remote_high >> 8);
@@ -189,8 +169,4 @@ lm90_write(uint8_t *data, uint8_t len) {
   return len;
 }
 
-uint8_t
-lm90_quick(uint8_t rd) {
-  return 0x00;
-}
 

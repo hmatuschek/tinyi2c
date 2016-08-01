@@ -40,13 +40,12 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/pgmspace.h>
-//#include <avr/wdt.h>
 #include <avr/eeprom.h>
 #include <util/delay.h>
 
 // use avrusb library
 #include "usbdrv/usbdrv.h"
-#include "i2c.h"
+#include "smb.h"
 #include "ds1621.h"
 #include "temp.h"
 
@@ -54,26 +53,16 @@
 /* ------------------------------------------------------------------------- */
 
 int	main(void) {
-  i2c_init();
-
-  /* clear usb ports */
-  USB_CFG_IOPORT   &= (uchar)~((1<<USB_CFG_DMINUS_BIT)|(1<<USB_CFG_DPLUS_BIT));
-
-  /* make usb data lines outputs */
-  USBDDR    |= ((1<<USB_CFG_DMINUS_BIT)|(1<<USB_CFG_DPLUS_BIT));
-
-  /* USB Reset by device only required on Watchdog Reset */
-  _delay_loop_2(40000);   // 10ms
-
-  /* make usb data lines inputs */
-  USBDDR &= ~((1<<USB_CFG_DMINUS_BIT)|(1<<USB_CFG_DPLUS_BIT));
-
-  usbInit();
+  // Init USB <-> I2C/SMBus interface
+  smb_init();
+  // init temperature measurement
   temp_init();
-
+  // enable interrupts
   sei();
+
+  // Go!
+
   for(;;) {	/* main event loop */
-    //wdt_reset();
     usbPoll();
   }
 
