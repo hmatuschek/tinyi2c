@@ -1,3 +1,6 @@
+# tiny-i2c -- An augmented i2c-tiny-usb compatible device emulating various I2C devices.
+
+This tiny USB device provides an I2C interface based on the original i2c-tiny-usb device. Hence, it is supported by the Linux kernel. Additionally, it is able to emulate various I2C devices in firmware. For example, it is able to emulate the LM90 temperature sensor by using a simple NTC resistor as a temperature sensor and the build-in temperature sensor of the ATTiny45.
 
 ## License
 libsdr - A simple software defined radio (SDR) library Copyright (C) 2014 Hannes Matuschek
