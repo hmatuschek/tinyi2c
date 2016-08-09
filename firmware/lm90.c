@@ -50,18 +50,18 @@ extern int16_t LM90_GET_INT_TEMP_FUNC();
 
 
 uint8_t
-lm90_write(uint8_t *data, uint8_t len) {
-  if (! len) {
+lm90_write(uint8_t *data, uint8_t len)
+{
+  if (! len)
     return 0;
-  }
 
-  // Dispatch by command
+  // Dispatch by command byte at data[0]
   switch (data[0]) {
     case READ_LTEMP:
-      smb_put_byte(temp_get_int() >> 8);
+      smb_put_byte(LM90_GET_INT_TEMP_FUNC() >> 8);
       break;
     case READ_RTEMPH:
-      smb_put_byte(temp_get_ext() >> 8);
+      smb_put_byte(LM90_GET_EXT_TEMP_FUNC() >> 8);
       break;
     case READ_STATUS_REG:
       smb_put_byte(0);
@@ -105,7 +105,7 @@ lm90_write(uint8_t *data, uint8_t len) {
     case WRITE_ONE_SHOT:
       break; // skip one-shot command, measureing continiously anyway
     case READ_RTEMPL:
-      smb_put_byte(temp_get_ext() & 0xff);
+      smb_put_byte(LM90_GET_EXT_TEMP_FUNC() & 0xff);
       break;
     case ACCESS_RTEMP_OFFH:
       if (2 == len)

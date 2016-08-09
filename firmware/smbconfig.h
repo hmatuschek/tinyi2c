@@ -1,5 +1,4 @@
-/* SMBus config file.
- *
+/** @file smbconfig.h SMBus config file.
  * This file collects the definitions needed to set up the hardware I2C and virtual SMBus
  * interfaces. */
 
@@ -14,11 +13,11 @@
 #define I2C_SCL    _BV(0)
 
 #include "lm90.h"
-//#include "ds1621.h"
+#include "ds1621.h"
 
 /// Number of present SMBus hooks.
-#define SMB_HOOK_COUNT 1
+#define SMB_HOOK_COUNT 2
 /// List of SMBus hooks.
-#define SMB_HOOKS      LM90_HOOK
+#define SMB_HOOKS      LM90_HOOK, DS1621_HOOK
 
 #endif // __SMBCONFIG_H__

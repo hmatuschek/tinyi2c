@@ -19,6 +19,7 @@ static uint8_t  reg_config    = 0x83;
 static uint16_t reg_low_temp  = 0x1200;
 static uint16_t reg_high_temp = 0x1b00;
 
+// Declare read temperature function
 extern int16_t DS1621_GET_TEMP_FUNC();
 
 uint8_t
@@ -29,7 +30,7 @@ ds1621_write(uint8_t *data, uint8_t len)
 
   switch (data[0]) {
     case READ_TEMP:
-      smb_put_word_be(temp_get_ext());
+      smb_put_word_be(DS1621_GET_TEMP_FUNC());
       break;
 
     case ACCESS_TH:

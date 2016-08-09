@@ -1,0 +1,104 @@
+#!/usr/bin/python
+
+from sys import stdin, argv
+from numpy import *
+from scipy.optimize import fmin
+import os.path
+import subprocess
+
+theta_file = "/home/hannes.matuschek/.local/share/roomtemp/theta.npy"
+rrd_file   = "/home/hannes.matuschek/.local/share/roomtemp/roomtemp.rrd"
+pred_file  = "/home/hannes.matuschek/public_html/predict.png"
+
+cmd = argv[1]
+Ncoef = 10
+
+
+if len(argv) < 3:
+  print("Load hist. from {0}".format(rrd_file))
+  pipe = subprocess.Popen("/usr/bin/rrdtool " +
+                          "fetch " + rrd_file +
+                          " AVERAGE -r 3600 -s end-100h",
+                          shell=True, stdout=subprocess.PIPE, env={"LC_ALL":"en_US.UTF-8"})
+  X = loadtxt(pipe.stdout, skiprows=2, delimiter=":")
+else:
+  X = loadtxt(argv[2], skiprows=2, delimiter=":")
+
+
+def mkF(theta):
+  """ Assemble system matrix. """
+  F = zeros((Ncoef,Ncoef));
+  F[0,:] = theta[:Ncoef]
+  F[1:,:(Ncoef-1)] = identity(Ncoef-1)
+  return F
+
+
+def predict(x, P, theta):
+  F = mkF(theta)
+  sigw = theta[-2]
+  xhat = dot(F,x)
+  Phat = dot(F, dot(P, F.T)) + sigw**2 * identity(Ncoef)
+  return xhat, Phat
+
+def update(t, xhat, Phat, theta):
+  sigv = theta[-1]
+  y = t-xhat[0]
+  S = Phat[0,0] + sigv**2
+  K = Phat[:,0]/S
+  x = xhat + K*y
+  P = identity(Ncoef); P[:,0] -= K
+  P = dot(P, Phat)
+  ll = -0.5 * (y**2/S + log(S))
+  return x, P, ll
+
+def filter(theta, T, x, P):
+  ll = 0;
+  for t in T:
+    xhat, Phat = predict(x, P, theta)
+    if isnan(t):
+      x, P = xhat, Phat
+    else:
+      x, P, sll = update(t, xhat, Phat, theta)
+      ll += sll
+  return x, P, ll
+
+def costFunction(theta, T, x0, P0):
+  x, P, ll = filter(theta, T, x0, P0)
+  return -ll
+
+def getTheta(path):
+  if not os.path.exists(path):
+    theta = zeros(Ncoef+2);
+    theta[0]  = 1.;
+    theta[-2] = 1.;
+    theta[-1] = 1.;
+    return theta
+  return load(theta_file)
+
+
+
+
+x0 = repeat(25, Ncoef).T
+P0 = 3**2 * identity(Ncoef)
+
+if "fit" == cmd:
+  theta0 = getTheta(theta_file)
+  theta = fmin(costFunction, theta0, args=(X[:,1], x0, P0))
+  save(theta_file, theta)
+  print("Theta={0}".format(theta))
+
+elif "predict" == cmd:
+  theta = getTheta(theta_file)
+  x,P,ll = filter(theta, X[:,1], x0,P0)
+
+  pred = empty((8,3));
+  for i in range(8):
+    pred[i,:] = x[0], x[0]-2*sqrt(P[0,0]), x[0]+2*sqrt(P[0,0])
+    x,P = predict(x, P, theta)
+  import matplotlib
+  matplotlib.use("agg")
+  from matplotlib import pylab
+  pylab.plot(pred[:,0], "b-")
+  pylab.plot(pred[:,1], "r--")
+  pylab.plot(pred[:,2], "r--")
+  pylab.savefig(pred_file)

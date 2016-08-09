@@ -4,6 +4,11 @@
 #include <util/delay.h>
 #include <string.h>
 
+// satisfy editor
+#ifndef PROGMEM
+#define PROGMEM
+#endif
+
 
 /* ********************************************************************************************* *
  * I2C Hardware interface
@@ -12,8 +17,6 @@
 
 static unsigned short clock_delay  = DEFAULT_DELAY;
 static unsigned short clock_delay2 = DEFAULT_DELAY/2;
-static unsigned short expected = 0;
-static unsigned char saved_cmd = 0;
 
 static void i2c_io_set_sda(uint8_t hi) {
   if(hi) {
@@ -50,9 +53,6 @@ static void i2c_init(void) {
   I2C_PORT |= I2C_SDA;            // enable pullup
   I2C_DDR &= ~I2C_SCL;            // port is input
   I2C_PORT |= I2C_SCL;            // enable pullup
-
-  /* no bytes to be expected */
-  expected = 0;
 }
 
 /* clock HI, delay, then LO */
@@ -208,17 +208,14 @@ struct i2c_cmd {
 #define STATUS_ADDRESS_ACK   1
 #define STATUS_ADDRESS_NAK   2
 
-
-#ifndef PROGMEM
-#define PROGMEM
-#endif
-
 #define min(a,b) (a<b) ? a : b
 
 /* the currently support capability is quite limited */
 const unsigned long func PROGMEM = I2C_FUNC_I2C | I2C_FUNC_SMBUS_EMUL;
 
-static uint8_t status = STATUS_IDLE;
+static uint8_t  status = STATUS_IDLE;
+static uint16_t expected = 0;
+static uint8_t  saved_cmd = 0;
 
 static SMBHook smb_hooks[SMB_HOOK_COUNT] = {SMB_HOOKS};
 static SMBHook *smb_hook = 0;
@@ -243,13 +240,12 @@ i2c_do(struct i2c_cmd *cmd) {
 
   // send DEVICE address (check if device is present)
   if (! i2c_put_u08(addr)) {
-    // If device not found && no hook installed -> done
+    // If device is not present...
     status = STATUS_ADDRESS_NAK;
     expected = 0;
     i2c_stop();
 
-    // If device is not present
-    // -> check if device is simulated (e.g. there is a registered hook for it).
+    // ... check if device is simulated (e.g. there is a registered hook for it).
     for (uint8_t i=0; i<SMB_HOOK_COUNT; i++) {
       if (cmd->addr == smb_hooks[i].addr) {
         // Hook found ...
@@ -261,12 +257,13 @@ i2c_do(struct i2c_cmd *cmd) {
         saved_cmd = cmd->cmd;
 
         // Handle SMBus "quick" messages
-        if ((cmd->cmd & CMD_I2C_END) && (!expected) && smb_hook->quick) {
+        if ((cmd->cmd & CMD_I2C_END) && (! expected) && smb_hook->quick) {
           smb_hook->quick(cmd->flags & I2C_M_RD);
         }
       }
     }
   } else {
+    // If device is present
     status = STATUS_ADDRESS_ACK;
     expected = cmd->len;
     saved_cmd = cmd->cmd;
@@ -277,7 +274,7 @@ i2c_do(struct i2c_cmd *cmd) {
   }
 
   /* more data to be expected? */
-  return ((((cmd->flags & I2C_M_RD) && cmd->len) || (!(cmd->flags & I2C_M_RD) && !(cmd->cmd & CMD_I2C_END))) ? 0xff : 0x00);
+  return ((((cmd->flags & I2C_M_RD) && cmd->len) || !((cmd->flags & I2C_M_RD) || (cmd->cmd & CMD_I2C_END))) ? 0xff : 0x00);
 }
 
 
@@ -289,11 +286,9 @@ uint8_t usbFunctionRead( uint8_t *data, uint8_t len )
   uint8_t i;
 
   if (smb_hook) {
-    uint8_t n = smb_hook->read(data, min(len, expected));
-    expected -= n;
-    while (expected) {
-      data[n] = 0; n++; expected--;
-    }
+    // If there is a hook installed -> read from hook
+    len = smb_hook->read(data, min(len, expected));
+    expected -= len;
   } else if (status == STATUS_ADDRESS_ACK) {
     if(len > expected) {
       len = expected;
@@ -324,15 +319,11 @@ uint8_t usbFunctionWrite( uint8_t *data, uint8_t len )
   uint8_t i;
 
   if (smb_hook) {
-    uint8_t n = smb_hook->write(data, min(len, expected));
-    expected -= n;
-    while (expected) {
-      data[n] = 0; n++; expected--;
-    }
+    len = smb_hook->write(data, min(len, expected));
+    expected -= len;
   } else if (status == STATUS_ADDRESS_ACK) {
-    if(len > expected) {
+    if(len > expected)
       len = expected;
-    }
 
     // consume bytes
     for (i=0;i<len;i++) {
@@ -343,9 +334,6 @@ uint8_t usbFunctionWrite( uint8_t *data, uint8_t len )
     // end transfer on last byte
     if (saved_cmd & CMD_I2C_END)
       i2c_stop();
-
-  } else {
-    memset(data, 0, len);
   }
 
   return len;
